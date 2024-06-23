@@ -17,6 +17,8 @@ Has a list of folders and on run goes over each path:
     2.2
 */
 
+#include "config.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
@@ -40,7 +42,7 @@ int is_dir(const char* fileName) {
 // gather all git projects to search
 // Given a path to a directory scan its content
 void dir_scan(char* base_path) {
-    char path[1000];
+    char path[PATH_MAX];
     struct dirent *dp;
     DIR *dir = opendir(base_path);
 
@@ -94,13 +96,16 @@ void genstats() {
 }
 
 int main(int argc, char *argv[]) {
-    printf("Program Name: %s \n", argv[0]);
 
+    initialize_config();
+
+    /*
+    // printf("Program Name: %s \n", argv[0]);
     if(argc > 1 && argv[1][0] == '-') {
         switch(argv[1][1]) {
             case 'a':
-                printf("searching folder(s): %s\n", argv[2]);
-                dir_scan(argv[2]);
+                // printf("searching folder(s): %s\n", argv[2]);
+                // dir_scan(argv[2]);
                 break;
             default:
                 printf("Incorrect argument: %s\n", argv[1]);
@@ -111,4 +116,5 @@ int main(int argc, char *argv[]) {
     // Generate stats as graph from the config files projects array
     // Also checks and generates a config if not present
     genstats();
+    */
 }
