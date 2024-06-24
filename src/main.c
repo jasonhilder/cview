@@ -97,6 +97,7 @@ void genstats() {
 
 int main(int argc, char *argv[]) {
 
+    // Needs to return a config struct;
     initialize_config();
 
     /*

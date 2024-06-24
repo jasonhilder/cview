@@ -29,6 +29,48 @@ static const char* get_config_file_path() {
     return config_path;
 }
 
+void create_config(const char *config_path) {
+    struct Config config = {
+        .email = "",
+        .exclude = {
+            "vendor",  
+            "node_modules", 
+            "zig-cache",
+            "tmp"
+        },
+        .projects = {}
+    };
+
+    // Write the config to a file
+    FILE *fp = fopen(config_path, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Write email
+    printf("Enter email: ");
+    fgets(config.email, sizeof(config.email), stdin);
+    fprintf(fp, "email:\n%s\n", config.email);
+
+    // Write excludes
+    int elen = sizeof(config.exclude) / sizeof(config.exclude[0]);
+    fprintf(fp, "exclude:\n");
+    printf("Add excluded folder (type .n): ");
+    for(int i = 0; i < elen; i++) {
+        if(strlen(config.exclude[i]) > 0) {
+            fprintf(fp, "%s\n", config.exclude[i]);
+        }
+
+    }
+
+    // Write projects
+    fprintf(fp, "\nprojects:\n");
+
+    fclose(fp);
+    printf("Config file created successfully.\n");
+}
+
 
 void initialize_config(void) {
     const char *config_file_path = get_config_file_path();
@@ -36,8 +78,9 @@ void initialize_config(void) {
 
     // Check if this file exists otherwise create it with some defaults
     if(file_exists(config_file_path) == -1) {
-        printf("File NOT exists!!\n"); 
-        // prompt user for email addressed used for commits
-        // prompt user for any specific folder types to ignore i.e (node_modules) 
+        // printf("File NOT exists!!\n"); 
+        create_config(config_file_path);
     }
+      
+    // read config and return it as a struct
 }
