@@ -28,6 +28,7 @@ Has a list of folders and on run goes over each path:
 void usage() {
 	printf("Usage:\n");
 	printf(" -a<folder_path>\n");
+	printf(" -e<exclude_folder_path>\n");
 	exit(EXIT_SUCCESS);
 }
 
@@ -81,15 +82,6 @@ void dir_scan(char* base_path) {
     closedir(dir);
 }
 
-// Search the current directory for a .git folder  
-void find_git_folder(DIR *dir) {
-    struct dirent *dp;
-    while((dp = readdir(dir)) != NULL) {
-        printf("%s\n", dp->d_name);
-
-    }
-}
-
 // Generates the git graph of contributions
 void genstats() {
     printf("generate stats \n");
@@ -98,7 +90,19 @@ void genstats() {
 int main(int argc, char *argv[]) {
 
     // Needs to return a config struct;
-    initialize_config();
+    config_t config_details = initialize_config();
+
+    printf("email %s\n", config_details.email);
+
+    printf("excluded folders:\n");
+    for(int i = 0; i < config_details.exclude_len; i++) {
+        printf("%s\n", config_details.exclude[i]);
+    }
+
+    printf("project folders:\n");
+    for(int i = 0; i < config_details.project_len; i++) {
+        printf("%s\n", config_details.projects[i]);
+    }
 
     /*
     // printf("Program Name: %s \n", argv[0]);
