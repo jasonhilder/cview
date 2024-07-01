@@ -1,6 +1,22 @@
 # cview
 View github contributions in the terminal.
 
+### Build instructions:
+
+```
+mkdir build && cd build && cmake ..
+```
+
+then
+
+```
+cmake --build .
+```
+
+### Currently dependencies are:
+
+* libssl-dev (ubuntu)
+
 
 Add a project or a directory of multiple projects with:
 ```
