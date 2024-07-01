@@ -53,3 +53,5 @@ dkms.conf
 
 # Project
 main
+build
+.cache
