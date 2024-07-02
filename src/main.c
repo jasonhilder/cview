@@ -1,28 +1,17 @@
-/*
-@TODO:
-On first run check for config, if not ask user for info.
-- email
-- directory(s)
-
-@NOTE:
-Has a list of folders and on run goes over each path:
-1. checks the directory for a .git folder
-    1.1 if found gets the commits for this folder
-    1.2 if not found continues to loop over the sub dirs to check for .git folders
-    1.3 if no .git folders found in directory and sub directory it just returns
-
-2. genstats loops over a predefined list of git projects
-    2.1 First checks if a config file exists for the user.
-        2.1.1 If not creates it
-    2.2
-*/
-
 #include "config.h"
+#include "git2/commit.h"
+#include "git2/errors.h"
+#include "git2/global.h"
+#include "git2/repository.h"
+#include "git2/revwalk.h"
+#include "git2/types.h"
+#include <git2.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <dirent.h>
+#include <time.h>
 #include <string.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 void usage() {
@@ -39,87 +28,147 @@ int is_dir(const char* fileName) {
     return S_ISREG(path.st_mode);
 }
 
-// @TODO: Need to loop over a list of directorys in a config file to
-// gather all git projects to search
-// Given a path to a directory scan its content
-void dir_scan(char* base_path) {
+
+void get_git_info(const char* repo_path, const char* email) {
+    int error;
+
+    //printf("this is a git directory add to list: %s\n", repo_path);
+    printf("email to check: %s\n", email);
+
+    git_repository* repo = NULL;
+    
+    error = git_repository_open(&repo, repo_path);
+    if(error < 0) {
+        const git_error* e = git_error_last();
+        fprintf(stderr, "Error opening repository: %s\n", e->message);
+
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        exit(error);
+    }
+
+    // -----------------------------------------------------------
+    git_revwalk *walker;
+    git_commit *commit;
+    git_oid oid;
+
+    struct tm since_date = {0};
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &since_date);
+    
+    // create revision walker
+    error = git_revwalk_new(&walker, repo);
+    if(error < 0) {
+        const git_error *e = git_error_last();
+        fprintf(stderr, "Error creating revwalker: %s\n", e->message);
+
+        git_repository_free(repo);
+        git_libgit2_shutdown();
+        exit(error);
+    }
+
+    // push head to walker and sort by time
+    git_revwalk_push_head(walker);
+    git_revwalk_sorting(walker, GIT_SORT_TIME);
+
+    // iterate through commits
+    while((error = git_revwalk_next(&oid, walker)) == 0) {
+        error = git_commit_lookup(&commit, repo, &oid);
+        if(error < 0) {
+            const git_error *e = git_error_last();
+            fprintf(stderr, "Error looking up commit: %s\n", e->message);
+            continue;
+        }
+        
+        // get info
+        const git_signature *author = git_commit_author(commit);
+        time_t commit_time = git_commit_time(commit);
+        struct tm *commit_tm = gmtime(&commit_time);
+
+        // Compare commit date and email
+        if (commit_tm->tm_year >= since_date.tm_year &&
+            commit_tm->tm_mon >= since_date.tm_mon &&
+            commit_tm->tm_mday >= since_date.tm_mday &&
+            strcmp(author->email, email) == 0) {
+            
+            printf("Commit: %s\n", git_commit_message(commit));
+            printf("Author: %s <%s>\n", author->name, author->email);
+            printf("Date: %s", asctime(commit_tm));
+            printf("-----------------------------------------\n");
+        }
+
+    }
+
+    git_revwalk_free(walker);
+    // -----------------------------------------------------------
+    git_repository_free(repo);
+}
+
+
+// Given a directory path, loop over its contents recursively
+// check each directory for a .git folder, if found this is a git project.
+void dir_scan(char* base_path, char** excluded_files, int excluded_len, char* email) {
     char path[PATH_MAX];
     struct dirent *dp;
     DIR *dir = opendir(base_path);
 
-    // Unable to open directory stream
     if(dir == NULL)
         return;
 
+    git_libgit2_init();
+
     while((dp = readdir(dir)) != NULL) {
 
-        // found a git project add it to the list and return to keep searching
         if(strcmp(dp->d_name, ".git") == 0) {
-            printf("this is a git directory add to list: %s\n", base_path);
+			// TODO: get its git stats and store them...
+            get_git_info(base_path, email);
+        }
+
+        // @TODO: need to find a better way to ignore specified folders
+        for(int i = 0; i < excluded_len; i++) {
+            if ( strcmp(dp->d_name, excluded_files[i]) == 0 ) {
+                continue;
+            }
         }
 
         // Go through all subfolders
-        // @TODO: need to find a better way to ignore specified folders
-        if (
-            strcmp(dp->d_name, ".") != 0 && 
-            strcmp(dp->d_name, "..") != 0 &&
-            strcmp(dp->d_name, "zig-cache") != 0 &&
-            strcmp(dp->d_name, "tmp") != 0 
-        )
+        if ( strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0 )
         {
             // if this path is a directory search its contents.
             if(is_dir(path) == 0) {
-                // Construct new path from our base path
                 strcpy(path, base_path);
                 strcat(path, dp->d_name);
-                //printf("%s\n", dp->d_name);
-                dir_scan(path);
+                dir_scan(path, excluded_files, excluded_len, email);
             }
 
         }
     }
+
+    git_libgit2_shutdown();
     
     closedir(dir);
 }
 
 // Generates the git graph of contributions
-void genstats() {
-    printf("generate stats \n");
+void genstats(config_t config_details) {
+    printf("generate stats \n\n");
+
+    for(int i = 0; i < config_details.project_len; i++) {
+        // printf("%s\n", config_details.projects[i]);
+		dir_scan(
+            config_details.projects[i], 
+            config_details.exclude, 
+            config_details.exclude_len,
+            config_details.email
+        );
+    }
 }
 
-int main(int argc, char *argv[]) {
-
-    // Needs to return a config struct;
+int main() {
     config_t config_details = initialize_config();
 
-    printf("email %s\n", config_details.email);
-
-    printf("excluded folders:\n");
-    for(int i = 0; i < config_details.exclude_len; i++) {
-        printf("%s\n", config_details.exclude[i]);
-    }
-
-    printf("project folders:\n");
-    for(int i = 0; i < config_details.project_len; i++) {
-        printf("%s\n", config_details.projects[i]);
-    }
-
-    /*
-    // printf("Program Name: %s \n", argv[0]);
-    if(argc > 1 && argv[1][0] == '-') {
-        switch(argv[1][1]) {
-            case 'a':
-                // printf("searching folder(s): %s\n", argv[2]);
-                // dir_scan(argv[2]);
-                break;
-            default:
-                printf("Incorrect argument: %s\n", argv[1]);
-                usage();
-        }
-    }
-
     // Generate stats as graph from the config files projects array
-    // Also checks and generates a config if not present
-    genstats();
-    */
+    genstats(config_details);
+
+    free_config(&config_details);
 }

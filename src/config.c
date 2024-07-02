@@ -6,12 +6,12 @@
 #include <sys/stat.h>
 
 // 0 == success, -1 == failed
-static int file_exists(const char *filename) {
+int file_exists(const char *filename) {
     struct stat   buffer;   
     return stat(filename, &buffer);
 }
 
-static const char* get_home_directory() {
+const char* get_home_directory() {
     const char* home = getenv("HOME");
 
     if(home == NULL || home[0] == '\0') {
@@ -22,18 +22,20 @@ static const char* get_home_directory() {
     return home;
 }
 
-static const char* get_config_file_path() {
-    static char config_path[PATH_MAX];
+const char* get_config_file_path() {
+    char config_path[PATH_MAX];
     const char *home = get_home_directory();
     snprintf(config_path, sizeof(config_path), "%s/%s", home, CONFIG_FILE);
-    return config_path;
+
+    const char *ret = config_path;
+    return ret;
 }
 
 void create_config(const char *config_path) {
     const char* home = getenv("HOME");
     char input[PATH_MAX];
 
-    char* default_excludes[4] = {
+    char* default_excludes[EXCLUDE_SIZE_DEFAULT] = {
         "vendor",  
         "node_modules", 
         "zig-cache",
@@ -49,13 +51,12 @@ void create_config(const char *config_path) {
 
     printf("Enter email: ");
     fgets(input, sizeof(input), stdin); 
-    fprintf(fp, "email:\n%s\n---\n", input);
+    fprintf(fp, "email:\n%s\n---", input);
 
     printf("Default exclude folders (vendor, node_modules, zig-cache, tmp).\nAdd new excluded folders with -e.\n");
 
-    int elen = sizeof(default_excludes) / sizeof(default_excludes[0]);
-    fprintf(fp, "exclude:\n");
-    for(int i = 0; i < elen; i++) {
+    fprintf(fp, "\nexclude:\n");
+    for(int i = 0; i < EXCLUDE_SIZE_DEFAULT; i++) {
         if(strlen(default_excludes[i]) > 0) {
             fprintf(fp, "%s\n", default_excludes[i]);
         }
@@ -94,7 +95,6 @@ config_t read_config(const char *config_path) {
     config_details.project_len = 0;
     memset(config_details.email, 0, sizeof(config_details.email));
 
-    // Write the config to a file
     FILE *fp = fopen(config_path, "r");
     if (fp == NULL) {
         fprintf(stderr, "Error opening file");
@@ -107,9 +107,11 @@ config_t read_config(const char *config_path) {
     int read_size = 256; 
     int line_size = PATH_MAX; 
     char line[read_size][line_size];  
+	int lines_stored = 0;
 
     while(fgets(line[i], line_size, fp)) {
         line[i][strlen(line[i]) - 1] = '\0';
+		lines_stored++;
         i++;
     }
     
@@ -120,7 +122,6 @@ config_t read_config(const char *config_path) {
 
         if(strcmp(line[i], "email:") == 0) {
             i++;
-            //printf("%s\n", line[i]);
             strncpy(config_details.email, line[i], strlen(line[i]));
         }
 
@@ -129,13 +130,13 @@ config_t read_config(const char *config_path) {
             i++;
             while(strcmp(line[i], "---") != 0) {
 
-                // Allocate memory for exclude array
                 if (config_details.exclude_len == 0) {
                     config_details.exclude = malloc(sizeof(char *));
-                    // check for allocation error;
                 } else {
                     config_details.exclude = realloc(config_details.exclude, sizeof(char *) * (config_details.exclude_len + 1));
-                    // check for allocation error;
+                }
+                if(config_details.exclude == NULL) {
+                    fprintf(stderr, "Failed to allocate memory for struct");
                 }
 
                 config_details.exclude[config_details.exclude_len] = strdup(line[i]);
@@ -146,17 +147,16 @@ config_t read_config(const char *config_path) {
 
         if(strcmp(line[i], "projects:") == 0) {
             i++;
+            while(i < lines_stored) {
 
-            // Need to check for EOF
-            while(strcmp(line[i], "---") != 0) {
-
-                // Allocate memory for exclude array
                 if (config_details.project_len == 0) {
                     config_details.projects = malloc(sizeof(char *));
-                    // check for allocation error;
                 } else {
                     config_details.projects = realloc(config_details.projects, sizeof(char *) * (config_details.project_len + 1));
-                    // check for allocation error;
+                }
+                // check for allocation error;
+                if(config_details.projects == NULL) {
+                    fprintf(stderr, "Failed to allocate memory for struct");
                 }
 
                 config_details.projects[config_details.project_len] = strdup(line[i]);
@@ -166,20 +166,29 @@ config_t read_config(const char *config_path) {
         }
     }
 
+    fclose(fp);
     return config_details;
+}
+
+void free_config(config_t *config) {
+    for (int i = 0; i < config->exclude_len; i++) {
+        free(config->exclude[i]);
+    }
+    free(config->exclude);
+
+    for (int i = 0; i < config->project_len; i++) {
+        free(config->projects[i]);
+    }
+    free(config->projects);
 }
 
 config_t initialize_config(void) {
     const char *config_file_path = get_config_file_path();
-    // printf("CONFIG FILE!!: %s \n", config_file_path);
 
-    // Check if this file exists otherwise create it with some defaults
     if(file_exists(config_file_path) == -1) {
-        // printf("File NOT exists!!\n"); 
         create_config(config_file_path);
     }
       
     config_t config_details = read_config(config_file_path);
-
     return config_details;
 }
