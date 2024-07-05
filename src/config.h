@@ -20,11 +20,11 @@ typedef struct Config {
 } config_t;
 
 config_t initialize_config(void);
-config_t read_config(const char *filename);
+config_t read_config(char *filename);
 void create_config(const char *filename);
 void free_config(config_t *config);
-const char* get_home_directory();
-const char* get_config_file_path();
+char* get_home_directory();
+char* get_config_file_path();
 int file_exists (const char *filename);
 
 #endif // CONFIG_H

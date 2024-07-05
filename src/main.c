@@ -168,7 +168,7 @@ int main() {
     config_t config_details = initialize_config();
 
     // Generate stats as graph from the config files projects array
-    genstats(config_details);
+    // genstats(config_details);
 
     free_config(&config_details);
 }

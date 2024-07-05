@@ -11,8 +11,8 @@ int file_exists(const char *filename) {
     return stat(filename, &buffer);
 }
 
-const char* get_home_directory() {
-    const char* home = getenv("HOME");
+char* get_home_directory() {
+    char* home = getenv("HOME");
 
     if(home == NULL || home[0] == '\0') {
         fprintf(stderr, "ERROR: Home environment variable is not set.\n");
@@ -22,13 +22,14 @@ const char* get_home_directory() {
     return home;
 }
 
-const char* get_config_file_path() {
-    char config_path[PATH_MAX];
-    const char *home = get_home_directory();
-    snprintf(config_path, sizeof(config_path), "%s/%s", home, CONFIG_FILE);
 
-    const char *ret = config_path;
-    return ret;
+char* get_config_file_path() {
+    char *config_path = malloc(PATH_MAX);
+    const char *home = get_home_directory();
+
+    snprintf(config_path, PATH_MAX, "%s/%s", home, CONFIG_FILE);
+
+    return config_path;
 }
 
 void create_config(const char *config_path) {
@@ -85,7 +86,7 @@ void create_config(const char *config_path) {
     printf("Config file created successfully.\n");
 }
 
-config_t read_config(const char *config_path) {
+config_t read_config(char *config_path) {
     struct Config config_details;
 
     // Initialize config_details
@@ -95,7 +96,7 @@ config_t read_config(const char *config_path) {
     config_details.project_len = 0;
     memset(config_details.email, 0, sizeof(config_details.email));
 
-    FILE *fp = fopen(config_path, "r");
+    FILE *fp = fopen(config_path, "a");
     if (fp == NULL) {
         fprintf(stderr, "Error opening file");
         exit(EXIT_FAILURE);
@@ -183,12 +184,14 @@ void free_config(config_t *config) {
 }
 
 config_t initialize_config(void) {
-    const char *config_file_path = get_config_file_path();
+    char* config_file_path = get_config_file_path();
 
     if(file_exists(config_file_path) == -1) {
         create_config(config_file_path);
     }
       
     config_t config_details = read_config(config_file_path);
+
+    free(config_file_path);
     return config_details;
 }
