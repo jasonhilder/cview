@@ -121,7 +121,7 @@ void dir_scan(char* base_path, char** excluded_files, int excluded_len, char* em
 
         if(strcmp(dp->d_name, ".git") == 0) {
 			// TODO: get its git stats and store them...
-            get_git_info(base_path, email);
+            // get_git_info(base_path, email);
         }
 
         // @TODO: need to find a better way to ignore specified folders
@@ -135,7 +135,8 @@ void dir_scan(char* base_path, char** excluded_files, int excluded_len, char* em
         if ( strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0 )
         {
             // if this path is a directory search its contents.
-            if(is_dir(path) == 0) {
+            if(is_dir(base_path) == 0) {
+                printf("file: %s\n", dp->d_name);
                 strcpy(path, base_path);
                 strcat(path, dp->d_name);
                 dir_scan(path, excluded_files, excluded_len, email);
@@ -168,7 +169,7 @@ int main() {
     config_t config_details = initialize_config();
 
     // Generate stats as graph from the config files projects array
-    // genstats(config_details);
+    genstats(config_details);
 
     free_config(&config_details);
 }

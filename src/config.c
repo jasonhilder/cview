@@ -96,7 +96,7 @@ config_t read_config(char *config_path) {
     config_details.project_len = 0;
     memset(config_details.email, 0, sizeof(config_details.email));
 
-    FILE *fp = fopen(config_path, "a");
+    FILE *fp = fopen(config_path, "r");
     if (fp == NULL) {
         fprintf(stderr, "Error opening file");
         exit(EXIT_FAILURE);
